@@ -203,7 +203,6 @@ def root():
 @app.on_event("startup")
 async def on_startup():
     asyncio.create_task(dp.start_polling(bot))
-
-     if __name == "__main__":
+if __name == "__main__":
     import uvicorn
     uvicorn.run("bot:app", host="0.0.0.0", port=10000)
