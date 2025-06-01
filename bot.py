@@ -4,10 +4,8 @@ from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram.utils import executor
 from datetime import datetime, timedelta
 import logging
-import os
 
-API_TOKEN = os.getenv("7843043237:AAEFXv4J2GIraUboF_t5afxgD4lxHFxp2s0")
-
+API_TOKEN = "7843043237:AAEFXv4J2GIraUboF_t5afxgD4lxHFxp2s0"  # <-- ВСТАВЬ СЮДА СВОЙ ТОКЕН
 
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher(bot)
@@ -24,10 +22,10 @@ STICKER_WIN = "CAACAgUAAxkBAAEGdKtlp3TjUjeTAAGGFcPU7gVKL3aVpQACegIAAladvQpxuylfO
 STICKER_LOSE = "CAACAgUAAxkBAAEGdKxlp3T4AAGINL_3j5h0T7gxfrc7QbwAAowCAAJWrb0KYrdtT2LOHkUvBA"
 
 teams = {"первые": set(), "мироходцы": set()}
-hp = {}  # user_id: 3 -> 2 -> 1 -> 0
-ammo = {}  # user_id: текущие снаряды
-cooldowns = {}  # user_id: datetime
-kills = {}  # user_id: количество выбывших
+hp = {}            # user_id: int (жизни)
+ammo = {}          # user_id: int (снаряды)
+cooldowns = {}     # user_id: datetime (перезарядка)
+kills = {}         # user_id: int (облития)
 round_end_time = None
 
 
@@ -52,8 +50,8 @@ async def start_game(message: types.Message):
         asyncio.create_task(round_timer(message.chat.id))
 
     await message.answer(
-        f"🏖 Здарова, {user.first_name}! Добро пожаловать в «Водяную битву с флудом!»\n"
-        f"Выбери команду и вступай в летний бой(возможно даже магический..))!",
+        f"🏖 Привет, {user.first_name}! Добро пожаловать в «Водяную битву с флудом!»\n"
+        f"Выбери команду и вступай в летний бой!",
         reply_markup=game_keyboard()
     )
 
@@ -66,6 +64,7 @@ async def join_team(callback: types.CallbackQuery):
     for t in teams:
         teams[t].discard(user.id)
     teams[team].add(user.id)
+
     hp[user.id] = 3
     ammo[user.id] = MAX_AMMO
 
@@ -94,21 +93,21 @@ async def attack(callback: types.CallbackQuery):
         await callback.answer(f"Перезарядка: {seconds} сек.", show_alert=True)
         return
 
-    if ammo[user_id] <= 0:
+    if ammo.get(user_id, 0) <= 0:
         await callback.answer("💤 У тебя закончились снаряды. Ждём перезарядки.", show_alert=True)
         return
 
     ammo[user_id] -= 1
     cooldowns[user_id] = now + timedelta(seconds=RELOAD_SECONDS)
 
-    # Враги
+    # Найти противника
     enemy_team = "мироходцы" if team == "первые" else "первые"
     if not teams[enemy_team]:
         await callback.answer("☀️ Врагов нет!", show_alert=True)
         return
 
     target_id = next(iter(teams[enemy_team]))
-    hp[target_id] -= 1
+    hp[target_id] = hp.get(target_id, 3) - 1
 
     try:
         target_info = await bot.get_chat_member(callback.message.chat.id, target_id)
@@ -117,14 +116,15 @@ async def attack(callback: types.CallbackQuery):
             f"💦 {user.first_name} обливает {target_info.user.first_name}!\n"
             f"У него осталось {hp[target_id]} жизней."
         )
-    except:
-        pass
+    except Exception as e:
+        print(f"Ошибка при получении информации о цели: {e}")
 
     if hp[target_id] <= 0:
-        teams[enemy_team].remove(target_id)
+        teams[enemy_team].discard(target_id)
         await callback.message.answer(f"💀 {target_info.user.first_name} выбыл!")
         kills[user_id] = kills.get(user_id, 0) + 1
-if not teams[enemy_team]:
+
+    if not teams[enemy_team]:
         await declare_winner(team, callback.message.chat.id)
 
 
@@ -133,6 +133,7 @@ async def show_stats(callback: types.CallbackQuery):
     if not kills:
         await callback.message.answer("⛱ Пока никто никого не облил.")
         return
+
     sorted_stats = sorted(kills.items(), key=lambda x: x[1], reverse=True)
     text = "📊 Топ по обливанию:\n"
     for i, (uid, score) in enumerate(sorted_stats[:10], 1):
@@ -141,6 +142,7 @@ async def show_stats(callback: types.CallbackQuery):
             text += f"{i}. {member.user.first_name} — {score} 💦\n"
         except:
             text += f"{i}. Игрок {uid} — {score} 💦\n"
+
     await callback.message.answer(text)
 
 
@@ -175,16 +177,18 @@ async def round_timer(chat_id):
 
 async def declare_winner(team, chat_id):
     losers = "мироходцы" if team == "первые" else "первые"
+
     for uid in teams[team]:
         try:
             await bot.send_sticker(uid, STICKER_WIN)
             await bot.send_message(uid, f"🎉 Победа команды «{team.title()}»!")
         except:
             pass
+
     for uid in teams[losers]:
         try:
             await bot.send_sticker(uid, STICKER_LOSE)
-            await bot.send_message(uid, f"💦 Команда «{team.title()}» вас победила КЧАУ.")
+            await bot.send_message(uid, f"💦 Команда «{team.title()}» вас победила.")
         except:
             pass
 
