@@ -1,34 +1,38 @@
 import asyncio
+import logging
+from datetime import datetime, timedelta
+
 from aiogram import Bot, Dispatcher, types
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
-from aiogram.utils import executor
-from datetime import datetime, timedelta
-import logging
+from fastapi import FastAPI
+import uvicorn
 
-API_TOKEN = "7742988542:AAFwEqJR-agWmMbfPlBRBdgxDSNP3Kxf-0o"  # <-- ВСТАВЬ СЮДА СВОЙ ТОКЕН
+# === Настройки ===
+API_TOKEN = "7742988xxx42:AAFwEqJR-agWmMbfPlBRBdgxDSNP3Kxf-0o"  # <-- вставь свой токен
 
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher(bot)
 logging.basicConfig(level=logging.INFO)
 
-# Константы
+# === Константы ===
 MAX_AMMO = 3
 RELOAD_SECONDS = 7
 ROUND_DURATION = 15 * 60  # 15 минут
 
-# Стикеры
+# === Стикеры ===
 STICKER_SPLASH = "CAACAgUAAxkBAAEGdKhlp3TCMY_EqA1z9zr0CBTKJY93aAACxQIAAladvQpJVm9rckWYbC8E"
 STICKER_WIN = "CAACAgUAAxkBAAEGdKtlp3TjUjeTAAGGFcPU7gVKL3aVpQACegIAAladvQpxuylfO8jzIS8E"
 STICKER_LOSE = "CAACAgUAAxkBAAEGdKxlp3T4AAGINL_3j5h0T7gxfrc7QbwAAowCAAJWrb0KYrdtT2LOHkUvBA"
 
+# === Игровые данные ===
 teams = {"первые": set(), "мироходцы": set()}
-hp = {}            # user_id: int (жизни)
-ammo = {}          # user_id: int (снаряды)
-cooldowns = {}     # user_id: datetime (перезарядка)
-kills = {}         # user_id: int (облития)
+hp = {}
+ammo = {}
+cooldowns = {}
+kills = {}
 round_end_time = None
 
-
+# === Интерфейс ===
 def game_keyboard():
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton("🌊 За Первых", callback_data="team_первые"),
@@ -37,7 +41,7 @@ def game_keyboard():
         [InlineKeyboardButton("📊 Статистика", callback_data="stats")]
     ])
 
-
+# === Обработчики ===
 @dp.message_handler(commands=["start"])
 async def start_game(message: types.Message):
     global round_end_time
@@ -55,7 +59,6 @@ async def start_game(message: types.Message):
         reply_markup=game_keyboard()
     )
 
-
 @dp.callback_query_handler(lambda c: c.data.startswith("team_"))
 async def join_team(callback: types.CallbackQuery):
     team = callback.data.split("_")[1]
@@ -70,18 +73,13 @@ async def join_team(callback: types.CallbackQuery):
 
     await callback.answer(f"Ты теперь за команду «{team.title()}»!")
 
-
 @dp.callback_query_handler(lambda c: c.data == "attack")
 async def attack(callback: types.CallbackQuery):
     user = callback.from_user
     user_id = user.id
 
     # Проверка команды
-    team = None
-    for t, members in teams.items():
-        if user_id in members:
-            team = t
-            break
+    team = next((t for t, members in teams.items() if user_id in members), None)
     if not team:
         await callback.answer("Сначала выбери команду!", show_alert=True)
         return
@@ -116,17 +114,17 @@ async def attack(callback: types.CallbackQuery):
             f"💦 {user.first_name} обливает {target_info.user.first_name}!\n"
             f"У него осталось {hp[target_id]} жизней."
         )
+
+        if hp[target_id] <= 0:
+            teams[enemy_team].discard(target_id)
+            await callback.message.answer(f"💀 {target_info.user.first_name} выбыл!")
+            kills[user_id] = kills.get(user_id, 0) + 1
+
+        if not teams[enemy_team]:
+            await declare_winner(team, callback.message.chat.id)
+
     except Exception as e:
         print(f"Ошибка при получении информации о цели: {e}")
-
-    if hp[target_id] <= 0:
-        teams[enemy_team].discard(target_id)
-        await callback.message.answer(f"💀 {target_info.user.first_name} выбыл!")
-        kills[user_id] = kills.get(user_id, 0) + 1
-
-    if not teams[enemy_team]:
-        await declare_winner(team, callback.message.chat.id)
-
 
 @dp.callback_query_handler(lambda c: c.data == "stats")
 async def show_stats(callback: types.CallbackQuery):
@@ -145,7 +143,7 @@ async def show_stats(callback: types.CallbackQuery):
 
     await callback.message.answer(text)
 
-
+# === Таймер раунда ===
 async def round_timer(chat_id):
     global round_end_time
     await asyncio.sleep(ROUND_DURATION)
@@ -174,7 +172,7 @@ async def round_timer(chat_id):
     kills.clear()
     round_end_time = None
 
-
+# === Победа ===
 async def declare_winner(team, chat_id):
     losers = "мироходцы" if team == "первые" else "первые"
 
@@ -192,23 +190,16 @@ async def declare_winner(team, chat_id):
         except:
             pass
 
-
-from fastapi import FastAPI
-import uvicorn
-import threading
-
+# === FastAPI + aiogram запуск ===
 app = FastAPI()
 
 @app.get("/")
 def root():
     return {"status": "Water battle bot is running!"}
 
-def run_bot():
-    executor.start_polling(dp, skip_updates=True)
+@app.on_event("startup")
+async def on_startup():
+    asyncio.create_task(dp.start_polling(bot, skip_updates=True))
 
-if __name__ == "__main__":
-    # Запускаем бота в отдельном потоке
-    threading.Thread(target=run_bot).start()
-
-    # Запускаем FastAPI-сервер, чтобы Render видел открытый порт
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+if name == "main":
+    uvicorn.run("main:app", host="0.0.0.0", port=8000)
