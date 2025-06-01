@@ -8,7 +8,7 @@ from fastapi import FastAPI
 import uvicorn
 
 # === Настройки ===
-API_TOKEN = "7742988xxx42:AAFwEqJR-agWmMbfPlBRBdgxDSNP3Kxf-0o"  # <-- вставь свой токен
+API_TOKEN = "7742988542:AAFwEqJR-agWmMbfPlBRBdgxDSNP3Kxf-0o"  # <-- вставь свой токен
 
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher(bot)
