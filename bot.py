@@ -206,7 +206,7 @@ def root():
 def run_bot():
     executor.start_polling(dp, skip_updates=True)
 
-if name == "main":
+if __name__ == "__main__":
     # Запускаем бота в отдельном потоке
     threading.Thread(target=run_bot).start()
 
