@@ -193,5 +193,22 @@ async def declare_winner(team, chat_id):
             pass
 
 
-if __name__ == "__main__":
+from fastapi import FastAPI
+import uvicorn
+import threading
+
+app = FastAPI()
+
+@app.get("/")
+def root():
+    return {"status": "Water battle bot is running!"}
+
+def run_bot():
     executor.start_polling(dp, skip_updates=True)
+
+if name == "main":
+    # Запускаем бота в отдельном потоке
+    threading.Thread(target=run_bot).start()
+
+    # Запускаем FastAPI-сервер, чтобы Render видел открытый порт
+    uvicorn.run(app, host="0.0.0.0", port=8000)
