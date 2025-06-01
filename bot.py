@@ -5,7 +5,7 @@ from aiogram.utils import executor
 from datetime import datetime, timedelta
 import logging
 
-API_TOKEN = "7843043237:AAEFXv4J2GIraUboF_t5afxgD4lxHFxp2s0"  # <-- ВСТАВЬ СЮДА СВОЙ ТОКЕН
+API_TOKEN = "7742988542:AAFwEqJR-agWmMbfPlBRBdgxDSNP3Kxf-0o"  # <-- ВСТАВЬ СЮДА СВОЙ ТОКЕН
 
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher(bot)
