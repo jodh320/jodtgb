@@ -11,7 +11,7 @@ from fastapi import FastAPI
 import uvicorn
 
 # Конфигурация
-API_TOKEN = "7742988xxx42:AAFwEqJR-agWmMbfPlBRBdgxDSNP3Kxf-0o"  # замени на свой токен
+API_TOKEN = "7954587647:AAE0OpASbTyP6Po4F_SHOWCpmmPWg7mDySE"  # замени на свой токен
 bot = Bot(token=API_TOKEN, parse_mode=ParseMode.HTML)
 storage = MemoryStorage()
 dp = Dispatcher(storage=storage)
