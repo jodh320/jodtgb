@@ -11,7 +11,7 @@ from fastapi import FastAPI
 import uvicorn
 
 # Конфигурация
-API_TOKEN = "7954587647:AAE0OpASbTyP6Po4F_SHOWCpmmPWg7mDySE"  # замени на свой токен
+API_TOKEN = "7742988xxx42:AAFwEqJR-agWmMbfPlBRBdgxDSNP3Kxf-0o"  # замени на свой токен
 bot = Bot(token=API_TOKEN, parse_mode=ParseMode.HTML)
 storage = MemoryStorage()
 dp = Dispatcher(storage=storage)
@@ -39,10 +39,16 @@ round_end_time = None
 # Клавиатура
 def game_keyboard():
     return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton("🌊 За Первых", callback_data="team_первые"),
-         InlineKeyboardButton("🌴 За Мироходцев", callback_data="team_мироходцы")],
-        [InlineKeyboardButton("💧 Облить соперника", callback_data="attack")],
-        [InlineKeyboardButton("📊 Статистика", callback_data="stats")]
+        [
+            InlineKeyboardButton(text="🌊 За Первых", callback_data="team_первые"),
+            InlineKeyboardButton(text="🌴 За Мироходцев", callback_data="team_мироходцы")
+        ],
+        [
+            InlineKeyboardButton(text="💧 Облить соперника", callback_data="attack")
+        ],
+        [
+            InlineKeyboardButton(text="📊 Статистика", callback_data="stats")
+        ]
     ])
 
 # Хэндлер /start
@@ -127,7 +133,7 @@ async def attack(callback: types.CallbackQuery):
                 await declare_winner(team, callback.message.chat.id)
 
     except Exception as e:
-        print(f"Ошибка при атаке: {e}")
+        logging.exception("Ошибка при атаке:")
 
 # Статистика
 @router.callback_query(F.data == "stats")
@@ -165,7 +171,6 @@ async def declare_winner(team, chat_id):
         except:
             pass
 
-    # Сброс данных и запуск нового раунда
     reset_game_data()
     global round_end_time
     round_end_time = datetime.now() + timedelta(seconds=ROUND_DURATION)
@@ -212,7 +217,7 @@ def root():
 async def on_startup():
     asyncio.create_task(dp.start_polling(bot))
 
-# Запуск сервера
+# Запуск сервера (для локального запуска)
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     uvicorn.run("bot:app", host="0.0.0.0", port=10000)
