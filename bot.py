@@ -3,14 +3,15 @@ import logging
 import random
 from datetime import datetime, timedelta
 
-from aiogram import Bot, Dispatcher, types, F, Router
-from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+from aiogram import Bot, Dispatcher, F, Router, types
 from aiogram.enums import ParseMode
 from aiogram.fsm.storage.memory import MemoryStorage
-from fastapi import FastAPI
-import uvicorn
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
-# Конфигурация
+# Настройка логгирования
+logging.basicConfig(level=logging.INFO)
+
+# === Конфигурация ===
 API_TOKEN = "7954587647:AAE0OpASbTyP6Po4F_SHOWCpmmPWg7mDySE"  # замени на свой токен
 bot = Bot(token=API_TOKEN, parse_mode=ParseMode.HTML)
 storage = MemoryStorage()
@@ -18,17 +19,17 @@ dp = Dispatcher(storage=storage)
 router = Router()
 dp.include_router(router)
 
-# Константы
+# === Константы ===
 MAX_AMMO = 3
 RELOAD_SECONDS = 7
 ROUND_DURATION = 15 * 60  # 15 минут
 
-# Стикеры
+# === Стикеры ===
 STICKER_SPLASH = "CAACAgUAAxkBAAEGdKhlp3TCMY_EqA1z9zr0CBTKJY93aAACxQIAAladvQpJVm9rckWYbC8E"
 STICKER_WIN = "CAACAgUAAxkBAAEGdKtlp3TjUjeTAAGGFcPU7gVKL3aVpQACegIAAladvQpxuylfO8jzIS8E"
 STICKER_LOSE = "CAACAgUAAxkBAAEGdKxlp3T4AAGINL_3j5h0T7gxfrc7QbwAAowCAAJWrb0KYrdtT2LOHkUvBA"
 
-# Игровые данные
+# === Игровые данные ===
 teams = {"первые": set(), "мироходцы": set()}
 hp = {}
 ammo = {}
@@ -36,7 +37,7 @@ cooldowns = {}
 kills = {}
 round_end_time = None
 
-# Клавиатура
+# === Клавиатура ===
 def game_keyboard():
     return InlineKeyboardMarkup(inline_keyboard=[
         [
@@ -51,8 +52,8 @@ def game_keyboard():
         ]
     ])
 
-# Хэндлер /start
-@router.message(F.text.startswith("/start"))
+# === Команда /start ===
+@router.message(F.text.regexp(r"^/start"))
 async def start_game(message: types.Message):
     global round_end_time
     user = message.from_user
@@ -69,7 +70,7 @@ async def start_game(message: types.Message):
         reply_markup=game_keyboard()
     )
 
-# Присоединение к команде
+# === Присоединение к команде ===
 @router.callback_query(F.data.startswith("team_"))
 async def join_team(callback: types.CallbackQuery):
     team = callback.data.split("_")[1]
@@ -84,7 +85,7 @@ async def join_team(callback: types.CallbackQuery):
 
     await callback.answer(f"Ты теперь за команду «{team.title()}»!")
 
-# Атака
+# === Атака ===
 @router.callback_query(F.data == "attack")
 async def attack(callback: types.CallbackQuery):
     user = callback.from_user
@@ -135,7 +136,7 @@ async def attack(callback: types.CallbackQuery):
     except Exception as e:
         logging.exception("Ошибка при атаке:")
 
-# Статистика
+# === Статистика ===
 @router.callback_query(F.data == "stats")
 async def show_stats(callback: types.CallbackQuery):
     if not kills:
@@ -153,7 +154,7 @@ async def show_stats(callback: types.CallbackQuery):
 
     await callback.message.answer(text)
 
-# Победа
+# === Победа и сброс ===
 async def declare_winner(team, chat_id):
     losers = "мироходцы" if team == "первые" else "первые"
 
@@ -176,7 +177,6 @@ async def declare_winner(team, chat_id):
     round_end_time = datetime.now() + timedelta(seconds=ROUND_DURATION)
     asyncio.create_task(round_timer(chat_id))
 
-# Сброс состояния
 def reset_game_data():
     teams["первые"].clear()
     teams["мироходцы"].clear()
@@ -185,7 +185,7 @@ def reset_game_data():
     cooldowns.clear()
     kills.clear()
 
-# Таймер раунда
+# === Таймер раунда ===
 async def round_timer(chat_id):
     global round_end_time
     await asyncio.sleep(ROUND_DURATION)
@@ -206,18 +206,7 @@ async def round_timer(chat_id):
 
     await declare_winner(winner, chat_id)
 
-# FastAPI приложение
-app = FastAPI()
-
-@app.get("/")
-def root():
-    return {"status": "Water battle bot is running!"}
-
-@app.on_event("startup")
-async def on_startup():
-    asyncio.create_task(dp.start_polling(bot))
-
-# Запуск сервера (для локального запуска)
+# === Точка входа ===
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-    uvicorn.run("bot:app", host="0.0.0.0", port=10000)
+    logging.info("🚀 Бот запускается...")
+    asyncio.run(dp.start_polling(bot))
